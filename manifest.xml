@@ -2,54 +2,127 @@
 <OfficeApp
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
   xsi:type="MailApp">
 
-  <!-- GUID único -->
-  <Id>3e8c3b90-90f7-4e77-89ee-dbd2acb28f5a</Id>
-
-  <Version>1.0.0.0</Version>
+  <!-- ===== Datos básicos ===== -->
+  <Id>3e8c3b90-90f7-4e77-89ee-dbd2acb28f5a</Id>  <!-- usa tu GUID si ya tienes uno -->
+  <Version>1.0.0.1</Version>
   <ProviderName>Will World Global</ProviderName>
 
-  <!-- ⚠ El orden importa: DefaultLocale va ANTES de DisplayName/Description -->
   <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="WWG Auto Signature" />
+  <Description DefaultValue="Automatically inserts the corporate signature when composing emails." />
 
-  <DisplayName DefaultValue="WWG Test Add-in" />
-  <Description DefaultValue="Quick test to insert a signature" />
+  <IconUrl DefaultValue="https://services.wkangaroo.com/outlook/signature/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://services.wkangaroo.com/outlook/signature/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://willworldglobal.com" />
 
-  <IconUrl DefaultValue="https://willworldglobal.com/wp-content/uploads/2025/10/image006.png" />
-  <HighResolutionIconUrl DefaultValue="https://willworldglobal.com/wp-content/uploads/2025/10/image006.png" />
-  <SupportUrl DefaultValue="https://www.willworldglobal.com/" />
+  <AppDomains>
+    <AppDomain>https://services.wkangaroo.com</AppDomain>
+  </AppDomains>
 
-  <!-- Hosts (Mailbox) -->
   <Hosts>
     <Host Name="Mailbox" />
   </Hosts>
 
-  <!-- Requirements: Mailbox 1.1 o superior -->
+  <!-- Requisitos base (schema viejo) -->
   <Requirements>
-    <Sets DefaultMinVersion="1.1">
-      <Set Name="Mailbox" MinVersion="1.1" />
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.10" />
     </Sets>
   </Requirements>
 
-  <!-- FormSettings para compose / edit -->
+  <!-- ===== OBLIGATORIO para validar: FormSettings + SourceLocation ===== -->
   <FormSettings>
-    <Form xsi:type="ItemEdit">
+    <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://services.wkangaroo.com/outlook/signature/index.html" />
+        <!-- Puede ser la misma página que uses para el runtime,
+             es solo para que el schema tenga un SourceLocation -->
+        <SourceLocation DefaultValue="https://services.wkangaroo.com/outlook/signature/runtime.html" />
+        <RequestedHeight>250</RequestedHeight>
       </DesktopSettings>
-      <TabletSettings>
-        <SourceLocation DefaultValue="https://services.wkangaroo.com/outlook/signature/index.html" />
-      </TabletSettings>
-      <PhoneSettings>
-        <SourceLocation DefaultValue="https://services.wkangaroo.com/outlook/signature/index.html" />
-      </PhoneSettings>
     </Form>
   </FormSettings>
 
+  <!-- Permisos para poder escribir en el cuerpo del mensaje -->
   <Permissions>ReadWriteItem</Permissions>
 
+  <!-- Regla requerida por el schema (aunque luego se ignore con VersionOverrides) -->
   <Rule xsi:type="RuleCollection" Mode="Or">
-    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit" />
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read" />
   </Rule>
+
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <!-- ====== VersionOverrides: aquí vive el LaunchEvent ====== -->
+  <VersionOverrides
+    xmlns="http://schemas.microsoft.com/office/mailappversionoverrides"
+    xsi:type="VersionOverridesV1_0">
+
+    <VersionOverrides
+      xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1"
+      xsi:type="VersionOverridesV1_1">
+
+      <!-- Requisitos para el modelo nuevo -->
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.10">
+          <bt:Set Name="Mailbox" />
+        </bt:Sets>
+      </Requirements>
+
+      <Hosts>
+        <Host xsi:type="MailHost">
+
+          <!-- Runtimes: HTML/JS que se usan para el event-based -->
+          <Runtimes>
+            <Runtime resid="WWG.Runtime.Url">
+              <!-- Para Outlook desktop clásico que carga JS directamente -->
+              <Override type="javascript" resid="WWG.Runtime.Script.Url" />
+            </Runtime>
+          </Runtimes>
+
+          <DesktopFormFactor>
+            <!-- Event-based: se dispara cuando se crea un nuevo mensaje -->
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent
+                  Type="OnNewMessageCompose"
+                  FunctionName="onNewMessageComposeHandler" />
+              </LaunchEvents>
+              <!-- Identifica qué runtime usar -->
+              <SourceLocation resid="WWG.Runtime.Url" />
+            </ExtensionPoint>
+          </DesktopFormFactor>
+
+        </Host>
+      </Hosts>
+
+      <!-- Recursos: iconos, URLs, textos -->
+      <Resources>
+        <bt:Images>
+          <bt:Image id="Icon.16x16" DefaultValue="https://services.wkangaroo.com/outlook/signature/assets/icon-16.png" />
+          <bt:Image id="Icon.32x32" DefaultValue="https://services.wkangaroo.com/outlook/signature/assets/icon-32.png" />
+          <bt:Image id="Icon.80x80" DefaultValue="https://services.wkangaroo.com/outlook/signature/assets/icon-80.png" />
+        </bt:Images>
+
+        <bt:Urls>
+          <!-- HTML que carga office.js y tu runtime JS -->
+          <bt:Url id="WWG.Runtime.Url" DefaultValue="https://services.wkangaroo.com/outlook/signature/runtime.html" />
+          <!-- JS donde defines onNewMessageComposeHandler y el Office.actions.associate -->
+          <bt:Url id="WWG.Runtime.Script.Url" DefaultValue="https://services.wkangaroo.com/outlook/signature/runtime.js" />
+        </bt:Urls>
+
+        <bt:ShortStrings>
+          <bt:String id="AppName" DefaultValue="WWG Auto Signature" />
+        </bt:ShortStrings>
+
+        <bt:LongStrings>
+          <bt:String id="AppDescription" DefaultValue="Automatically inserts the WWG corporate signature when composing messages." />
+        </bt:LongStrings>
+      </Resources>
+
+    </VersionOverrides>
+  </VersionOverrides>
 </OfficeApp>
